@@ -10,9 +10,8 @@ import { useContext, useState } from 'react'
 
 
 function Login() {
-
-  const [user, setUser] = useState({})
-  const { login } = useContext(Context)
+	const [user, setUser] = useState({})
+	const { login } = useContext(Context)
 
   function handleChange(e) {
     setUser({ ...user, [e.target.name]: e.target.value })

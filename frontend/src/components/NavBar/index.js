@@ -1,7 +1,10 @@
-import React from 'react'
+import React, { useContext } from 'react'
 import { Link } from 'react-router-dom'
+import { Context } from '../../context/UserContext'
 
 function NavBar() {
+    const { authenticated, logout } = useContext(Context)
+
     return (
         <nav className="navbar navbar-expand-lg bg-warning" >
             <div className="container-fluid">
@@ -14,15 +17,25 @@ function NavBar() {
                         <li className="nav-item">
                             <Link to='/' className="nav-link active" aria-current="page" >Home</Link>
                         </li>
-                        <li className="nav-item">
-                            <Link to='/register' className="nav-link" >Registrar</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link to='/login' className="nav-link" >Login</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link to='/user/profile' className="nav-link" aria-disabled="true">Perfil</Link>
-                        </li>
+                        {!authenticated ? (
+                            <>
+                                <li className="nav-item">
+                                    <Link to='/register' className="nav-link" >Registrar</Link>
+                                </li>
+                                <li className="nav-item">
+                                    <Link to='/login' className="nav-link" >Login</Link>
+                                </li>
+                            </>
+                        ) : (
+                            <>
+                                <li className="nav-item">
+                                    <Link to='/user/profile' className="nav-link" aria-disabled="true">Perfil</Link>
+                                </li>
+                                <li className='nav-item'>
+                                    <Link to='/' className='nav-link' onClick={logout}> Sair</Link>
+                                </li>
+                            </>
+                        )}
                     </ul>
                 </div>
             </div>
