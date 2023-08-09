@@ -31,6 +31,11 @@ function NavBar() {
                                 <li className="nav-item">
                                     <Link to='/user/profile' className="nav-link" aria-disabled="true">Perfil</Link>
                                 </li>
+                                
+                                <li className='nav-item'>
+                                    <Link to='/pet/create' className='nav-link'>Cadastrar Pet</Link>
+                                </li>
+
                                 <li className='nav-item'>
                                     <Link to='/' className='nav-link' onClick={logout}> Sair</Link>
                                 </li>

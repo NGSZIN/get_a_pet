@@ -6,7 +6,7 @@ const db = require('../db/conn')
 const Pet = require('./Pet')
 
 const ImagePet = db.define('ImagePet', {
-    Image:{
+    image:{
         type: DataTypes.STRING,
         allowNull: false
     }

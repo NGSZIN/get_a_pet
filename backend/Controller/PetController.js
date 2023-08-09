@@ -1,42 +1,41 @@
-//models
 const Pet = require('../Model/Pet')
-const ImagePet = require('../Model/ImagePet')
 const User = require('../Model/User')
-//helpers
 const getToken = require('../Helpers/get-token')
-//bibliotecas
+const getUserByToken = require('../Helpers/get-user-by-token')
 const jwt = require('jsonwebtoken')
+const ImagePet = require('../Model/ImagePet')
 
 module.exports = class PetController {
     static async create(req, res) {
         const { name, age, weight, color } = req.body
-        const available = true //sempre que um novo pet for cadastrado sera disponivel
 
-        //validações
+
+        const available = true
         if (!name) {
             res.status(422).json({ message: 'O nome é obrigatório' })
             return
         }
         if (!age) {
-            res.status(422).json({ message: 'A idade é obrigatório' })
+            res.status(422).json({ message: 'O age é obrigatório' })
             return
         }
         if (!weight) {
-            res.status(422).json({ message: 'O peso é obrigatório' })
+            res.status(422).json({ message: 'O weight é obrigatório' })
             return
         }
         if (!color) {
-            res.status(422).json({ message: 'A cor é obriatório' })
+            res.status(422).json({ message: 'O color é obrigatório' })
             return
         }
 
-        //definindo quem cadastrou o pet
+
+        //pegando o dono do pet
         let currentUser
         const token = getToken(req)
-        const decoded = jwt.verify(token, 'nossosecret')//decodificando o token para pegar o id
+        const decoded = jwt.verify(token, 'nossosecret')
         currentUser = await User.findByPk(decoded.id)
 
-        //criando o objeto pet
+        //criando pet
         const pet = new Pet({
             name: name,
             age: age,
@@ -44,245 +43,268 @@ module.exports = class PetController {
             color: color,
             available: available,
             UserId: currentUser.id
-        })
-        //salvando no banco de dados
+        });
+
         try {
-            const newPet = await pet.save()
-            res.status(200).json({ message: 'Pet cadastrado com sucesso', newPet })
+            // Save the pet to the database
+            const newPet = await pet.save();
+
+            // Handle image uploads
+            const images = req.files;
+            if (images && images.length > 0) {
+                // Save each image to the ImagePet table
+                for (let i = 0; i < images.length; i++) {
+                    const filename = images[i].filename;
+                    const newImagePet = new ImagePet({ image: filename, PetId: newPet.id });
+                    await newImagePet.save();
+                }
+            }
+
+            res.status(201).json({ message: 'Pet cadastrado com sucesso', newPet });
         } catch (error) {
-            res.status(500).json({ message: error })
+            res.status(500).json({ message: error });
         }
     }
 
-    //buscar todos os pets
+
+
+    //mostrando todos os pets
     static async getAll(req, res) {
-        const pets = await Pet.findAll({
-            order: [['createdAt', 'DESC']]
-        })
-        res.status(200).json({ pets: pets })
-    }
+    const pets = await Pet.findAll({
+        order: [['createdAt', 'DESC']],
+        include: ImagePet
+    });
 
-    //filtrar pets por usuario
+    res.status(200).json({ pets: pets });
+
+}
+
+    //filtrando os pets por usuario
     static async getAllUserPets(req, res) {
-        //verificar usuario logado
-        let currentUser
-        const token = getToken(req)
-        const decoded = jwt.verify(token, 'nossosecret')
-        currentUser = await User.findByPk(decoded.id)
-        const currentUserId = currentUser.id
+    //encontrando o usuario logado
+    let currentUser
+    const token = getToken(req)
+    const decoded = jwt.verify(token, 'nossosecret')
+    currentUser = await User.findByPk(decoded.id)
+    currentUser.password = undefined
+    const currentUserId = currentUser.id
 
-        const pets = await Pet.findAll({
-            where: { UserId: currentUserId },
-            order: [['createdAt', 'DESC']]
-        })
-        res.status(200).json({ pets })
-    }
+    const pets = await Pet.findAll({ where: { userId: currentUserId }, order: [['createdAt', 'DESC']] })
+
+    res.status(200).json({ pets })
+
+}
 
     static async getPetById(req, res) {
-        const id = req.params.id
+    const id = req.params.id
 
-        if (isNaN(id)) {// inNaN == é um Not a Number
-            res.status(422).json({ message: 'ID Invalido' })
-            return
-        }
-
-        //buscar pet pelo id
-        const pet = await Pet.findByPk(id)
-
-        //validando se o pet existe
-        if (!pet) {
-            res.status(422).json({ message: 'Pet não existe' })
-            return
-        }
-        res.status(200).json({ pet: pet })
+    if (isNaN(id)) {
+        res.status(422).json({ message: 'ID Inválido' })
+        return
     }
+    //get pet by id
+    const pet = await Pet.findByPk(id, { include: ImagePet });
+
+    //validando se o ID é valido
+    if (!pet) {
+        res.status(422).json({ message: 'Pet não existe' })
+        return
+    }
+
+    res.status(200).json({ pet: pet })
+}
 
     static async removePetById(req, res) {
-        const id = req.params.id
+    const id = req.params.id
 
-        if (isNaN(id)) {// inNaN == é um Not a Number
-            res.status(422).json({ message: 'ID Invalido' })
-            return
-        }
-
-        //buscar pet pelo id
-        const pet = await Pet.findByPk(id)
-
-        //validando se o pet existe
-        if (!pet) {
-            res.status(422).json({ message: 'Pet não existe' })
-            return
-        }
-
-        //verificar usuario logado
-        let currentUser
-        const token = getToken(req)
-        const decoded = jwt.verify(token, 'nossosecret')
-        currentUser = await User.findByPk(decoded.id)
-        const currentUserId = currentUser.id
-
-        if (pet.UserId !== currentUserId) {
-            res.status(422).json({ message: 'ID Invalido' })
-            return
-        }
-
-        await Pet.destroy({ where: { id: id } })
-        res.status(200).json({ message: 'Pet destruido com sucesso!!!' })
+    if (isNaN(id)) {
+        res.status(422).json({ message: 'ID Inválido' })
+        return
     }
+    //get pet by id
+    const pet = await Pet.findByPk(id)
+
+    //validando se o ID é valido
+    if (!pet) {
+        res.status(422).json({ message: 'Pet não existe' })
+        return
+    }
+
+    //checar se o usuario logado registrou o pet
+    let currentUser
+    const token = getToken(req)
+    const decoded = jwt.verify(token, 'nossosecret')
+    currentUser = await User.findByPk(decoded.id)
+    currentUser.password = undefined
+    const currentUserId = currentUser.id
+
+    if (Number(pet.userId) !== Number(currentUserId)) {
+        res.status(422).json({ message: 'ID inválido' })
+        return
+    }
+
+    await Pet.destroy({ where: { id: id } })
+
+    res.status(200).json({ message: 'Pet removido com sucesso' })
+}
+
 
     static async updatePet(req, res) {
-        const id = req.params.id
+    const id = req.params.id
+    const { name, age, weight, color } = req.body
 
-        const { name, age, weight, color } = req.body
+    const updateData = {}
+    const pet = await Pet.findByPk(id);
 
-        const updatedPet = {}
-
-        //buscar pet pelo id
-        const pet = await Pet.findByPk(id)
-
-        //validando se o pet existe
-        if (!pet) {
-            res.status(422).json({ message: 'Pet não existe' })
-            return
-        }
-
-        //verificar usuario logado
-        let currentUser
-        const token = getToken(req)
-        const decoded = jwt.verify(token, 'nossosecret')
-        currentUser = await User.findByPk(decoded.id)
-        const currentUserId = currentUser.id
-
-        if (pet.UserId !== currentUserId) {
-            res.status(422).json({ message: 'ID Invalido' })
-            return
-        }
-
-        if (!name) {
-            res.status(422).json({ message: 'O nome é obrigatório' })
-            return
-        } else {
-            updatedPet.name = name
-        }
-        if (!age) {
-            res.status(422).json({ message: 'O age é obrigatório' })
-            return
-        } else {
-            updatedPet.age = age
-        }
-        if (!weight) {
-            res.status(422).json({ message: 'O weight é obrigatório' })
-            return
-        } else {
-            updatedPet.weight = weight
-        }
-        if (!color) {
-            res.status(422).json({ message: 'O color é obrigatório' })
-            return
-        } else {
-            updatedPet.color = color
-        }
-
-        //trabalhar as imagens
-        const images = req.files
-        if (!images || images.length === 0) {
-            res.status(422).json({ message: 'As imagens são obrigatórias' })
-            return
-        } else {
-            //Atualizar as imagens do PET
-            const imageFilenames = images.map((image) => image.name)
-            //remover as imagens antigas
-            await ImagePet.destroy({ where: { PetId: pet.id } })
-            //Adicionar novas imagens
-            for (let i = 0; i < imageFilenames.length; i++) {
-                const fileName = imageFilenames[i]
-                const newImagePet = new ImagePet({ Image: fileName, PetId: pet.id })
-                await newImagePet.save()
-            }
-        }
-        await Pet.update(updatedPet, { where: { id: id } })
-
-        res.status(200).json({ message: 'Pet atualizado com sucesso' })
+    if (!pet) {
+        res.status(404).json({ message: "Pet não existe!" });
+        return;
     }
+
+    //pegando o dono do pet
+    let currentUser
+    const token = getToken(req)
+    const decoded = jwt.verify(token, 'nossosecret')
+    currentUser = await User.findByPk(decoded.id)
+
+    if (pet.UserId !== currentUser.id) {
+        res.status(422).json({ message: "ID inválido!" });
+        return;
+    }
+
+    if (!name) {
+        res.status(422).json({ message: "O nome é obrigatório!" });
+        return;
+    } else {
+        updateData.name = name
+    }
+    if (!age) {
+        res.status(422).json({ message: "A idade é obrigatória!" });
+        return;
+    } else {
+        updateData.age = age
+    }
+    if (!weight) {
+        res.status(422).json({ message: "O peso é obrigatório!" });
+        return;
+    } else {
+        updateData.weight = weight
+    }
+    if (!color) {
+        res.status(422).json({ message: "A cor é obrigatória!" });
+        return;
+    } else {
+        updateData.color = color
+    }
+
+
+
+    const images = req.files
+    if (!images || images.length === 0) {
+        res.status(422).json({ message: "As imagens são obrigatórias!" });
+        return;
+    } else {
+        // Atualizar as imagens do pet
+        const imageFilenames = images.map((image) => image.filename);
+        // Remover imagens antigas
+        await ImagePet.destroy({ where: { PetId: pet.id } });
+        // Adicionar novas imagens
+        for (let i = 0; i < imageFilenames.length; i++) {
+            const filename = imageFilenames[i];
+            const newImagePet = new ImagePet({ image: filename, PetId: pet.id });
+            await newImagePet.save();
+        }
+
+    }
+
+    await Pet.update(updateData, { where: { id: id } });
+
+    res.status(200).json({ message: "att com successo!" })
+}
 
     static async schedule(req, res) {
-        const id = req.params.id
-        //buscar pet pelo id
-        const pet = await Pet.findByPk(id)
-        //validando se o pet existe
-        if (!pet) {
-            res.status(422).json({ message: 'Pet não existe' })
-            return
-        }
-        //verificar usuario logado
-        let currentUser
-        const token = getToken(req)
-        const decoded = jwt.verify(token, 'nossosecret')
-        currentUser = await User.findByPk(decoded.id)
-        const currentUserId = currentUser.id
+    const id = req.params.id;
 
-        if (pet.UserId === currentUserId) {
-            res.status(422).json({ message: 'O pet já é seu' })
-            return
-        }
+    const pet = await Pet.findByPk(id);
 
-        //checar se o usuario já agendou a visita
-        if (pet.adopter) {
-            if (pet.adopter === currentUserId) {
-                res.status(422).json({ message: 'Voce já agendou uma visita para esse pet' })
-                return
-            }
-        }
-
-        pet.adopter = currentUserId
-
-        await pet.save()
-
-        res.status(200).json({ message: `Visita agendada por ${currentUser.name}` })
-
+    if (!pet) {
+        res.status(404).json({ message: "Pet não existe!" });
+        return;
     }
+
+    //checar se o usuario logado registrou o pet
+    let currentUser
+    const token = getToken(req)
+    const decoded = jwt.verify(token, 'nossosecret')
+    currentUser = await User.findByPk(decoded.id)
+
+    if (pet.userId === currentUser.id) {
+        res.status(422).json({ message: "O pet já é seu" });
+        return;
+    }
+
+    //checar se o usuario ja agendou a visita
+
+    if (pet.adopter) {
+        if (pet.adopter === currentUser.id) {
+            res.status(422).json({ message: "Voce ja agendou a visita" });
+            return;
+        }
+    }
+
+    console.log(pet.adopter, ' = ', currentUser.id)
+    //adicioar user como adontante do pet
+    pet.adopter = currentUser.id
+
+    await pet.save()
+
+    res.status(200).json({ message: `Visita agendada por ${currentUser.name}` })
+}
 
     static async concludeAdoption(req, res) {
-        const id = req.params.id
-        //buscar pet pelo id
-        const pet = await Pet.findByPk(id)
-        //validando se o pet existe
-        if (!pet) {
-            res.status(422).json({ message: 'Pet não existe' })
-            return
-        }
-        //verificar usuario logado
-        let currentUser
-        const token = getToken(req)
-        const decoded = jwt.verify(token, 'nossosecret')
-        currentUser = await User.findByPk(decoded.id)
-        const currentUserId = currentUser.id
+    const id = req.params.id;
 
-        if (pet.UserId !== currentUserId) {
-            res.status(422).json({ message: 'ID invalido' })
-            return
-        }
-
-        pet.available = false
-
-        await pet.save()
-
-        res.status(200).json({ message: 'adoção concluida' })
+    const pet = await Pet.findByPk(id);
+    if (!pet) {
+        res.status(404).json({ message: "Pet não existe!" });
+        return;
     }
+
+    let currentUser
+    const token = getToken(req)
+    const decoded = jwt.verify(token, 'nossosecret')
+    currentUser = await User.findByPk(decoded.id)
+
+    if (pet.UserId !== currentUser.id) {
+        res.status(422).json({ message: "ID inválido!" });
+        return;
+    }
+
+    pet.available = false
+
+    await pet.save(); // Salvando a instância do pet atualizada.
+
+    res.status(200).json({ message: `Adoção concluída` })
+}
 
     static async getAllUserAdoptions(req, res) {
-        //verificar usuario logado
-        let currentUser
-        const token = getToken(req)
-        const decoded = jwt.verify(token, 'nossosecret')
-        currentUser = await User.findByPk(decoded.id)
-        const currentUserId = currentUser.id
 
-        const pets = await Pet.findAll({
-            where: { adopter: currentUserId },
-            order: [['createdAt', 'DESC']]
-        })
+    //get usuario pelo token
+    let currentUser
+    const token = getToken(req)
+    const decoded = jwt.verify(token, 'nossosecret')
+    currentUser = await User.findByPk(decoded.id)
 
-        res.status(200).json({ pets })
-    }
+    const pets = await Pet.findAll({
+        where: { adopter: currentUser.id },
+        order: [['createdAt', 'DESC']]
+    });
+
+    res.status(200).json({
+        pets,
+    })
+
+}
+
+
 }

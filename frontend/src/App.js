@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import NavBar from "./components/NavBar";
 import Container from "./components/Container";
 import { UserProvider } from "./context/UserContext"
+import AddPet from './pages/AddPet'
 
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
               <Route exact path="/" element={<Home />} />
               <Route exact path="/Login" element={<Login />} />
               <Route exact path="/user/profile" element={<Profile />} />
+              <Route exact path="/pet/create" element={<AddPet />} />
               <Route exact path="register" element={<Register />} />
             </Routes>
           </Container>

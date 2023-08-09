@@ -2,7 +2,7 @@
 //hooks
 import { useState, useEffect } from "react"
 //util
-import api from '../utils/api'
+import api from '../../utils/api'
 //react-router-dom
 import { useNavigate } from "react-router-dom"
 
